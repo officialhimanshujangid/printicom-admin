@@ -17,9 +17,9 @@ export default function LegalPages() {
   const [title, setTitle] = useState('')
   const [isPublished, setIsPublished] = useState(true)
 
-  const { data: pages = [], isLoading } = useQuery({ 
-    queryKey: ['legalPages'], 
-    queryFn: fetchPages 
+  const { data: pages = [], isLoading } = useQuery({
+    queryKey: ['legalPages'],
+    queryFn: fetchPages
   })
 
   const { data: pageDetail, isLoading: isDetailLoading } = useQuery({
@@ -70,9 +70,9 @@ export default function LegalPages() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+      <div className="page-body-wrapper">
         {/* Sidebar */}
-        <div className="card" style={{ width: 280, flexShrink: 0, padding: 12 }}>
+        <div className="page-sidebar card" style={{ padding: 12 }}>
           <h3 style={{ fontSize: 13, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 12, paddingLeft: 8 }}>Available Pages</h3>
           {pages.map(page => (
             <button
@@ -95,17 +95,17 @@ export default function LegalPages() {
         </div>
 
         {/* Editor Area */}
-        <div className="card" style={{ flex: 1, minHeight: 600, display: 'flex', flexDirection: 'column' }}>
+        <div className="page-content card" style={{ minHeight: 600, display: 'flex', flexDirection: 'column' }}>
           {isDetailLoading ? (
             <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}><div className="spinner" /></div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ flex: 1 }}>
+              <div className="legal-editor-header" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16 }}>
+                <div style={{ flex: 1, minWidth: 240 }}>
                   <label className="form-label">Page Title</label>
                   <input className="form-input" value={title} onChange={e => setTitle(e.target.value)} />
                 </div>
-                <div style={{ marginLeft: 24, display: 'flex', alignItems: 'center', gap: 10, marginTop: 18 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 10 }}>
                   <label className="toggle">
                     <input type="checkbox" checked={isPublished} onChange={e => setIsPublished(e.target.checked)} />
                     <span className="toggle-slider" />
@@ -116,8 +116,8 @@ export default function LegalPages() {
 
               <div className="form-group" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <label className="form-label">Page Content (HTML/Rich Text)</label>
-                <textarea 
-                  className="form-textarea" 
+                <textarea
+                  className="form-textarea"
                   style={{ flex: 1, minHeight: 450, fontFamily: 'monospace', fontSize: 13 }}
                   value={content}
                   onChange={e => setContent(e.target.value)}
@@ -129,8 +129,8 @@ export default function LegalPages() {
               </div>
 
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: 20, display: 'flex', justifyContent: 'flex-end' }}>
-                <button 
-                  className="btn btn-primary" 
+                <button
+                  className="btn btn-primary"
                   disabled={updateMutation.isPending}
                   onClick={handleSave}
                 >

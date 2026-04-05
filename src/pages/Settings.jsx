@@ -30,9 +30,9 @@ export default function Settings() {
   // ─── Social
   const [social, setSocial] = useState({ instagram: '', facebook: '', twitter: '', youtube: '', whatsapp: '', pinterest: '' })
   // ─── Homepage
-  const [homepage, setHomepage] = useState({ 
+  const [homepage, setHomepage] = useState({
     showOfferStrip: true, offerStripText: '', offerStripBgColor: '#FF6B35', offerStripTextColor: '#FFFFFF',
-    features: [] 
+    features: []
   })
   // ─── Maintenance
   const [maintenance, setMaintenance] = useState({ enabled: false, message: '' })
@@ -98,9 +98,9 @@ export default function Settings() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+      <div className="page-body-wrapper">
         {/* Sidebar Nav */}
-        <div className="card" style={{ width: 220, flexShrink: 0, padding: 8 }}>
+        <div className="page-sidebar card" style={{ padding: 8 }}>
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -117,7 +117,7 @@ export default function Settings() {
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1 }}>
+        <div className="page-content">
           {/* General */}
           {activeTab === 'general' && (
             <div className="card">
@@ -336,21 +336,21 @@ export default function Settings() {
                 <div className="form-row">
                   <div className="form-group">
                     <label className="form-label">Instagram URL</label>
-                    <input className="form-input" value={social.instagram || ''} onChange={e => setSocial({...social, instagram: e.target.value})} placeholder="https://instagram.com/..." />
+                    <input className="form-input" value={social.instagram || ''} onChange={e => setSocial({ ...social, instagram: e.target.value })} placeholder="https://instagram.com/..." />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Facebook URL</label>
-                    <input className="form-input" value={social.facebook || ''} onChange={e => setSocial({...social, facebook: e.target.value})} placeholder="https://facebook.com/..." />
+                    <input className="form-input" value={social.facebook || ''} onChange={e => setSocial({ ...social, facebook: e.target.value })} placeholder="https://facebook.com/..." />
                   </div>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
                     <label className="form-label">WhatsApp Number</label>
-                    <input className="form-input" value={social.whatsapp || ''} onChange={e => setSocial({...social, whatsapp: e.target.value})} placeholder="+919876543210" />
+                    <input className="form-input" value={social.whatsapp || ''} onChange={e => setSocial({ ...social, whatsapp: e.target.value })} placeholder="+919876543210" />
                   </div>
                   <div className="form-group">
                     <label className="form-label">YouTube Channel</label>
-                    <input className="form-input" value={social.youtube || ''} onChange={e => setSocial({...social, youtube: e.target.value})} placeholder="https://youtube.com/c/..." />
+                    <input className="form-input" value={social.youtube || ''} onChange={e => setSocial({ ...social, youtube: e.target.value })} placeholder="https://youtube.com/c/..." />
                   </div>
                 </div>
                 <button className="btn btn-primary" style={{ alignSelf: 'flex-start' }} disabled={saving === 'social'} onClick={() => save('social', { socialLinks: social }, '/settings/social-links')}>
@@ -372,7 +372,7 @@ export default function Settings() {
                       <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Top bar for latest offers/news</div>
                     </div>
                     <label className="toggle">
-                      <input type="checkbox" checked={homepage.showOfferStrip} onChange={e => setHomepage({...homepage, showOfferStrip: e.target.checked})} />
+                      <input type="checkbox" checked={homepage.showOfferStrip} onChange={e => setHomepage({ ...homepage, showOfferStrip: e.target.checked })} />
                       <span className="toggle-slider" />
                     </label>
                   </div>
@@ -380,21 +380,21 @@ export default function Settings() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                       <div className="form-group">
                         <label className="form-label">Offer Text</label>
-                        <input className="form-input" value={homepage.offerStripText || ''} onChange={e => setHomepage({...homepage, offerStripText: e.target.value})} placeholder="Free Shipping on all orders! Use code WELCOME." />
+                        <input className="form-input" value={homepage.offerStripText || ''} onChange={e => setHomepage({ ...homepage, offerStripText: e.target.value })} placeholder="Free Shipping on all orders! Use code WELCOME." />
                       </div>
                       <div className="form-row">
                         <div className="form-group">
                           <label className="form-label">Background Color</label>
                           <div style={{ display: 'flex', gap: 8 }}>
-                            <input type="color" value={homepage.offerStripBgColor || '#FF6B35'} onChange={e => setHomepage({...homepage, offerStripBgColor: e.target.value})} style={{ width: 40, height: 40, padding: 0, border: 'none' }} />
-                            <input className="form-input" value={homepage.offerStripBgColor || ''} onChange={e => setHomepage({...homepage, offerStripBgColor: e.target.value})} />
+                            <input type="color" value={homepage.offerStripBgColor || '#FF6B35'} onChange={e => setHomepage({ ...homepage, offerStripBgColor: e.target.value })} style={{ width: 40, height: 40, padding: 0, border: 'none' }} />
+                            <input className="form-input" value={homepage.offerStripBgColor || ''} onChange={e => setHomepage({ ...homepage, offerStripBgColor: e.target.value })} />
                           </div>
                         </div>
                         <div className="form-group">
                           <label className="form-label">Text Color</label>
                           <div style={{ display: 'flex', gap: 8 }}>
-                            <input type="color" value={homepage.offerStripTextColor || '#FFFFFF'} onChange={e => setHomepage({...homepage, offerStripTextColor: e.target.value})} style={{ width: 40, height: 40, padding: 0, border: 'none' }} />
-                            <input className="form-input" value={homepage.offerStripTextColor || ''} onChange={e => setHomepage({...homepage, offerStripTextColor: e.target.value})} />
+                            <input type="color" value={homepage.offerStripTextColor || '#FFFFFF'} onChange={e => setHomepage({ ...homepage, offerStripTextColor: e.target.value })} style={{ width: 40, height: 40, padding: 0, border: 'none' }} />
+                            <input className="form-input" value={homepage.offerStripTextColor || ''} onChange={e => setHomepage({ ...homepage, offerStripTextColor: e.target.value })} />
                           </div>
                         </div>
                       </div>
@@ -409,19 +409,19 @@ export default function Settings() {
                         <div className="form-group" style={{ marginBottom: 12 }}>
                           <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase' }}>Feature {i + 1} Icon</label>
                           <input className="form-input" value={f.icon || ''} onChange={e => {
-                            const n = [...homepage.features]; n[i].icon = e.target.value; setHomepage({...homepage, features: n})
+                            const n = [...homepage.features]; n[i].icon = e.target.value; setHomepage({ ...homepage, features: n })
                           }} placeholder="🚚" />
                         </div>
                         <div className="form-group" style={{ marginBottom: 12 }}>
                           <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase' }}>Title</label>
                           <input className="form-input" value={f.title || ''} onChange={e => {
-                            const n = [...homepage.features]; n[i].title = e.target.value; setHomepage({...homepage, features: n})
+                            const n = [...homepage.features]; n[i].title = e.target.value; setHomepage({ ...homepage, features: n })
                           }} placeholder="Fast Delivery" />
                         </div>
                         <div className="form-group" style={{ marginBottom: 0 }}>
                           <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase' }}>Description</label>
                           <input className="form-input" value={f.desc || ''} onChange={e => {
-                            const n = [...homepage.features]; n[i].desc = e.target.value; setHomepage({...homepage, features: n})
+                            const n = [...homepage.features]; n[i].desc = e.target.value; setHomepage({ ...homepage, features: n })
                           }} placeholder="2-5 days across India" />
                         </div>
                       </div>

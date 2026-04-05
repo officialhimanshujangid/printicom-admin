@@ -36,6 +36,8 @@ export default function AdminLayout() {
       <Sidebar
         collapsed={collapsed}
         onToggle={() => setCollapsed((p) => !p)}
+        mobileOpen={mobileOpen}
+        onClose={() => setMobileOpen(false)}
       />
       <div className={`main-content${collapsed ? ' sidebar-collapsed' : ''}`}>
         <Topbar title={title} onMobileToggle={() => setMobileOpen((p) => !p)} />

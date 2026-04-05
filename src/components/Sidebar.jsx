@@ -62,7 +62,7 @@ const NAV = [
   },
 ]
 
-export default function Sidebar({ collapsed, onToggle }) {
+export default function Sidebar({ collapsed, onToggle, mobileOpen, onClose }) {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
 
@@ -70,60 +70,73 @@ export default function Sidebar({ collapsed, onToggle }) {
     logout()
     toast.success('Logged out successfully')
     navigate('/login')
+    onClose?.()
+  }
+
+  const handleLinkClick = () => {
+    if (window.innerWidth <= 768) {
+      onClose?.()
+    }
   }
 
   return (
-    <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
-      {/* Brand */}
-      <NavLink to="/dashboard" className="sidebar-brand" style={{ gap: 0, padding: '14px 16px' }}>
-        {collapsed
-          ? <PrinticomLogo size={34} showText={false} />
-          : <PrinticomLogo size={38} showText={true} />}
-      </NavLink>
+    <>
+      {/* Mobile Overlay */}
+      {mobileOpen && <div className="sidebar-overlay" onClick={onClose} />}
 
-      {/* Navigation */}
-      <nav className="sidebar-nav">
-        {NAV.map((section, idx) => (
-          <div key={section.section || `sec_${idx}`} className="nav-section">
-            <div className="nav-section-label">{section.section || 'Marketing & Content'}</div>
-            {section.items.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
-              >
-                <span className="nav-icon">{item.icon}</span>
-                <span className="nav-label">{item.label}</span>
-              </NavLink>
-            ))}
-          </div>
-        ))}
-      </nav>
+      <aside className={`sidebar${collapsed ? ' collapsed' : ''}${mobileOpen ? ' mobile-open' : ''}`}>
+        {/* Brand */}
+        <NavLink to="/dashboard" className="sidebar-brand" style={{ gap: 0, padding: '14px 16px' }} onClick={handleLinkClick}>
+          {collapsed
+            ? <PrinticomLogo size={34} showText={false} />
+            : <PrinticomLogo size={38} showText={true} />}
+        </NavLink>
 
-      {/* Footer */}
-      <div className="sidebar-footer">
-        {/* User info */}
-        {!collapsed && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 8px', marginBottom: 8 }}>
-            <div className="avatar-placeholder" style={{ width: 32, height: 32, fontSize: 12 }}>
-              {user?.name?.[0]?.toUpperCase() || 'A'}
+        {/* Navigation */}
+        <nav className="sidebar-nav">
+          {NAV.map((section, idx) => (
+            <div key={section.section || `sec_${idx}`} className="nav-section">
+              {!collapsed && <div className="nav-section-label">{section.section || 'Marketing & Content'}</div>}
+              {section.items.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+                  onClick={handleLinkClick}
+                >
+                  <span className="nav-icon">{item.icon}</span>
+                  <span className="nav-label">{item.label}</span>
+                </NavLink>
+              ))}
             </div>
-            <div style={{ overflow: 'hidden', flex: 1 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.name}</div>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Administrator</div>
+          ))}
+        </nav>
+
+        {/* Footer */}
+        <div className="sidebar-footer">
+          {/* User info */}
+          {!collapsed && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 8px', marginBottom: 8 }}>
+              <div className="avatar-placeholder" style={{ width: 32, height: 32, fontSize: 12 }}>
+                {user?.name?.[0]?.toUpperCase() || 'A'}
+              </div>
+              <div style={{ overflow: 'hidden', flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.name}</div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Administrator</div>
+              </div>
             </div>
+          )}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-ghost btn-sm" style={{ flex: 1, justifyContent: collapsed ? 'center' : 'flex-start' }} onClick={handleLogout}>
+              <LogOut size={15} />
+              {!collapsed && <span>Logout</span>}
+            </button>
+            <button className="btn btn-ghost btn-icon btn-sm" onClick={onToggle} title={collapsed ? 'Expand' : 'Collapse'}>
+              {collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+            </button>
           </div>
-        )}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-ghost btn-sm" style={{ flex: 1, justifyContent: collapsed ? 'center' : 'flex-start' }} onClick={handleLogout}>
-            <LogOut size={15} />
-            {!collapsed && <span>Logout</span>}
-          </button>
-          <button className="btn btn-ghost btn-icon btn-sm" onClick={onToggle} title={collapsed ? 'Expand' : 'Collapse'}>
-            {collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
-          </button>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   )
 }
