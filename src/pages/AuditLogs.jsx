@@ -48,7 +48,7 @@ export default function AuditLogs() {
               <th>Timestamp</th>
               <th>Action</th>
               <th>User</th>
-              <th>Entity</th>
+              <th>Details</th>
               <th>IP Address</th>
             </tr>
           </thead>
@@ -62,10 +62,12 @@ export default function AuditLogs() {
                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{log.user?.email}</div>
                 </td>
                 <td>
-                   <div><strong style={{ color: 'var(--text-primary)' }}>{log.entityType}</strong></div>
-                   <div style={{ fontSize: 11, color: 'var(--brand)' }}>{log.entityId}</div>
+                   <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{log.details || log.entityType}</div>
+                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{log.entityType} ID: {log.entityId}</div>
                 </td>
-                <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{log.ipAddress || '—'}</td>
+                <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                  {log.ipAddress && log.ipAddress !== '::1' ? log.ipAddress.replace('::ffff:', '') : 'Localhost'}
+                </td>
               </tr>
             ))}
             {filteredLogs.length === 0 && (

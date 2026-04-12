@@ -26,6 +26,9 @@ import Tickets from './pages/Tickets'
 import AuditLogs from './pages/AuditLogs'
 import Stock from './pages/Stock'
 import BulkOrders from './pages/BulkOrders'
+import Reports from './pages/Reports'
+import Invoices from './pages/Invoices'
+import InvoiceDetail from './pages/InvoiceDetail'
 
 
 export default function App() {
@@ -70,6 +73,9 @@ export default function App() {
           <Route path="tickets" element={<Tickets />} />
           <Route path="audit-logs" element={<AuditLogs />} />
           <Route path="bulk-orders" element={<BulkOrders />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="invoices" element={<Invoices />} />
+          <Route path="invoices/:id" element={<InvoiceDetail />} />
         </Route>
 
         {/* Fallback */}

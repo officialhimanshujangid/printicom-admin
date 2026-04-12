@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Search, Ticket } from 'lucide-react'
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Search, Ticket, Eye, Users, CheckCircle, Clock } from 'lucide-react'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
 import { formatDate, formatCurrency, extractError } from '../lib/utils'
@@ -13,6 +13,8 @@ const fetchCoupons = async () => {
 const defaultForm = {
   code: '', discountType: 'percentage', discountValue: '', minOrderAmount: '',
   maxDiscountAmount: '', validFrom: '', validUntil: '', usageLimit: '', perUserLimit: 1, description: '',
+  // Advanced conditions
+  isFirstOrderOnly: false, maxOrderAmount: '', minAccountAgeDays: '',
 }
 
 export default function Coupons() {
@@ -21,6 +23,8 @@ export default function Coupons() {
   const [modal, setModal] = useState(null)
   const [form, setForm] = useState(defaultForm)
   const [saving, setSaving] = useState(false)
+  
+  const [detailsModal, setDetailsModal] = useState(null)
   
   const [targetModal, setTargetModal] = useState(false)
   const [targetForm, setTargetForm] = useState({
@@ -45,6 +49,8 @@ export default function Coupons() {
       minOrderAmount: coupon.minOrderAmount || '', maxDiscountAmount: coupon.maxDiscountAmount || '',
       validFrom: coupon.validFrom?.split('T')[0] || '', validUntil: coupon.validUntil?.split('T')[0] || '',
       usageLimit: coupon.usageLimit || '', perUserLimit: coupon.perUserLimit || 1, description: coupon.description || '',
+      isFirstOrderOnly: coupon.isFirstOrderOnly || false,
+      maxOrderAmount: coupon.maxOrderAmount || '', minAccountAgeDays: coupon.minAccountAgeDays || '',
     })
     setModal(coupon)
   }
@@ -176,6 +182,7 @@ export default function Coupons() {
                   <td><span className={`badge ${c.isActive ? 'badge-success' : 'badge-danger'}`}>{c.isActive ? 'Active' : 'Inactive'}</span></td>
                   <td>
                     <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDetailsModal(c)}><Eye size={14} /></button>
                       <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEdit(c)}><Pencil size={14} /></button>
                       <button className="btn btn-ghost btn-icon btn-sm" onClick={() => toggleStatus.mutate(c._id)} style={{ color: c.isActive ? 'var(--warning)' : 'var(--success)' }}>
                         {c.isActive ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
@@ -250,6 +257,33 @@ export default function Coupons() {
                 <label className="form-label">Description</label>
                 <input className="form-input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Internal note..." />
               </div>
+
+              {/* Advanced Conditions */}
+              <div style={{ background: 'var(--bg-hover)', borderRadius: 10, padding: '12px 16px' }}>
+                <div style={{ fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: 12 }}>🎯 Advanced Conditions <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(all optional)</span></div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Max Order Amount (₹)</label>
+                    <input type="number" className="form-input" value={form.maxOrderAmount} onChange={(e) => setForm({ ...form, maxOrderAmount: e.target.value })} min={0} placeholder="Unlimited" />
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Coupon only valid when cart is below this</div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Min Account Age (days)</label>
+                    <input type="number" className="form-input" value={form.minAccountAgeDays} onChange={(e) => setForm({ ...form, minAccountAgeDays: e.target.value })} min={0} placeholder="Any" />
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>User account must be at least X days old</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                  <label className="toggle" style={{ flexShrink: 0 }}>
+                    <input type="checkbox" checked={form.isFirstOrderOnly} onChange={(e) => setForm({ ...form, isFirstOrderOnly: e.target.checked })} />
+                    <span className="toggle-slider" />
+                  </label>
+                  <div>
+                    <span className="form-label" style={{ marginBottom: 0 }}>First Order Only</span>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Coupon is only valid for users who have never placed an order</div>
+                  </div>
+                </div>
+              </div>
               <div className="modal-footer" style={{ margin: 0, padding: 0, border: 0 }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setModal(null)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
@@ -315,6 +349,97 @@ export default function Coupons() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      
+      {/* Details / Stats Modal */}
+      {detailsModal && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setDetailsModal(null) }}>
+          <div className="modal" style={{ maxWidth: 700, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-header">
+              <h2 className="modal-title">Coupon Details - <span style={{ color: 'var(--brand-primary)', letterSpacing: 1 }}>{detailsModal.code}</span></h2>
+              <button className="btn btn-ghost btn-icon" onClick={() => setDetailsModal(null)}>✕</button>
+            </div>
+            
+            <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+                <div style={{ background: 'rgba(99,102,241,0.06)', borderRadius: 12, padding: 16, border: '1px solid rgba(99,102,241,0.1)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--brand-primary)', marginBottom: 8, fontWeight: 600 }}><Users size={18} /> Targeted Users</div>
+                  <div style={{ fontSize: 24, fontWeight: 800 }}>{detailsModal.targetedUsers?.length || 0}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Users specifically sent this code</div>
+                </div>
+                <div style={{ background: 'rgba(16,185,129,0.06)', borderRadius: 12, padding: 16, border: '1px solid rgba(16,185,129,0.1)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--success)', marginBottom: 8, fontWeight: 600 }}><CheckCircle size={18} /> Claimed By</div>
+                  <div style={{ fontSize: 24, fontWeight: 800 }}>
+                    {new Set(detailsModal.usedBy?.map(u => u.user?._id)).size || 0}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Unique users who successfully used it</div>
+                </div>
+                <div style={{ background: 'rgba(245,158,11,0.06)', borderRadius: 12, padding: 16, border: '1px solid rgba(245,158,11,0.1)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--warning)', marginBottom: 8, fontWeight: 600 }}><Ticket size={18} /> Total Usages</div>
+                  <div style={{ fontSize: 24, fontWeight: 800 }}>{detailsModal.usageCount || 0}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Total times code applied</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                {/* Targeted List */}
+                <div>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>Sent To (Targeted)</h3>
+                  {(!detailsModal.targetedUsers || detailsModal.targetedUsers.length === 0) ? (
+                    <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem', background: 'var(--bg-hover)', borderRadius: 8 }}>
+                      Public Coupon
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {detailsModal.targetedUsers.map(u => u && (
+                        <div key={u._id} style={{ display: 'flex', gap: 12, alignItems: 'center', background: 'var(--bg-hover)', padding: '10px 12px', borderRadius: 8 }}>
+                          <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--brand-primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.9rem' }}>
+                            {u.name?.charAt(0).toUpperCase() || '?'}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name}</div>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Used By List */}
+                <div>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>Claim History</h3>
+                  {(!detailsModal.usedBy || detailsModal.usedBy.length === 0) ? (
+                    <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem', background: 'var(--bg-hover)', borderRadius: 8 }}>
+                      Not claimed yet
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {detailsModal.usedBy.slice().reverse().map((usage, idx) => usage.user && (
+                        <div key={idx} style={{ display: 'flex', gap: 12, alignItems: 'center', background: 'var(--bg-hover)', padding: '10px 12px', borderRadius: 8 }}>
+                          <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--success)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.9rem' }}>
+                            {usage.user?.name?.charAt(0).toUpperCase() || '?'}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{usage.user.name}</div>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{usage.user.email}</div>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                            <Clock size={12} style={{ color: 'var(--text-muted)', marginBottom: 2 }} />
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{new Date(usage.usedAt).toLocaleDateString()}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer" style={{ marginTop: 0 }}>
+              <button className="btn btn-secondary" onClick={() => setDetailsModal(null)}>Close</button>
+            </div>
           </div>
         </div>
       )}

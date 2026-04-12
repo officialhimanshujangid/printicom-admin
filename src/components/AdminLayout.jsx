@@ -22,6 +22,7 @@ const TITLES = {
   '/faqs': 'FAQs',
   '/contact': 'Contact Submissions',
   '/wishlist': 'Wishlist Analytics',
+  '/reports': 'Reports',
 }
 
 export default function AdminLayout() {

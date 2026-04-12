@@ -10,6 +10,13 @@ import api from '../lib/api'
 import toast from 'react-hot-toast'
 import { formatDate, formatCurrency, buildImageUrl, extractError, PRODUCT_TYPES } from '../lib/utils'
 
+const fetchSettings = async () => {
+  try {
+    const { data } = await api.get('/settings')
+    return data.data?.settings || data.data || {}
+  } catch { return {} }
+}
+
 const fetchProducts = async ({ queryKey }) => {
   const [, page, search, type] = queryKey
   const params = new URLSearchParams({ page, limit: 12 })
@@ -346,10 +353,17 @@ export default function Products() {
   // Customization fields state (form-builder)
   const [isCustomizable, setIsCustomizable] = useState(false)
   const [customizationFields, setCustomizationFields] = useState([])
+  // GST state per product
+  const [isGstApplicable, setIsGstApplicable] = useState(false)
+  const [gstPercentage, setGstPercentage] = useState('')   // '' = use global rate
+  const [gstIncludedInPrice, setGstIncludedInPrice] = useState('global') // 'global', 'yes', 'no'
 
   const { data, isLoading } = useQuery({ queryKey: ['products', page, search, typeFilter], queryFn: fetchProducts })
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: fetchCategories })
   const { data: allRelatedTos = [] } = useQuery({ queryKey: ['relatedTos'], queryFn: fetchRelatedTos })
+  const { data: siteSettings = {} } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings })
+  const globalGstRate = siteSettings?.tax?.gstPercentage ?? 18
+  const globalGstEnabled = siteSettings?.tax?.enabled ?? false
 
   const products = data?.products || []
   const pagination = data?.pagination || {}
@@ -362,6 +376,9 @@ export default function Products() {
     setPricingTiers([])
     setIsCustomizable(false)
     setCustomizationFields([])
+    setIsGstApplicable(globalGstEnabled)
+    setGstPercentage('')
+    setGstIncludedInPrice('global')
     setModal('create')
   }
 
@@ -387,6 +404,10 @@ export default function Products() {
     // Load customization
     setIsCustomizable(p.isCustomizable || false)
     setCustomizationFields((p.customizationOptions || []).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)))
+    // Load GST
+    setIsGstApplicable(p.isGstApplicable || false)
+    setGstPercentage(p.gstPercentage != null ? String(p.gstPercentage) : '')
+    setGstIncludedInPrice(p.gstIncludedInPrice || 'global')
     setModal(p)
   }
 
@@ -414,6 +435,10 @@ export default function Products() {
       fd.append('customizationOptions', JSON.stringify(
         isCustomizable ? customizationFields.map((f, i) => ({ ...f, sortOrder: i })) : []
       ))
+      // GST
+      fd.append('isGstApplicable', isGstApplicable)
+      fd.append('gstPercentage', gstPercentage !== '' ? gstPercentage : '')
+      fd.append('gstIncludedInPrice', gstIncludedInPrice)
       // Base product images
       imageFiles.forEach((f) => fd.append('images', f))
       // RelatedTos JSON (ids + any existing image references)
@@ -792,12 +817,96 @@ export default function Products() {
                 />
               </div>
 
+              {/* ── GST Section ── */}
+              <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                  <label className="toggle">
+                    <input type="checkbox" checked={isGstApplicable} onChange={e => setIsGstApplicable(e.target.checked)} />
+                    <span className="toggle-slider" />
+                  </label>
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>GST applicable on this product</span>
+                    {!globalGstEnabled && (
+                      <div style={{ fontSize: 11, color: 'var(--warning)', marginTop: 2 }}>⚠️ GST is disabled globally in Settings → Tax. Enable it there first.</div>
+                    )}
+                  </div>
+                </div>
+                {isGstApplicable && (
+                  <div style={{ background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 10, padding: '14px 16px', display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: 180 }}>
+                      <label className="form-label" style={{ marginBottom: 4 }}>GST Rate Override (%)</label>
+                      <input
+                        type="number"
+                        className="form-input"
+                        value={gstPercentage}
+                        onChange={e => setGstPercentage(e.target.value)}
+                        min={0} max={100} step={0.5}
+                        placeholder={`${globalGstRate} (global rate)`}
+                      />
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                        Leave blank to use global GST rate ({globalGstRate}%). Enter a value to override for this product only.
+                      </div>
+                      <div style={{ marginTop: 12 }}>
+                        <label className="form-label" style={{ marginBottom: 4 }}>Is GST Included in Price?</label>
+                        <select className="form-input" value={gstIncludedInPrice} onChange={e => setGstIncludedInPrice(e.target.value)}>
+                          <option value="global">Use Global Setting ({siteSettings?.tax?.includedInPrice ? 'Included' : 'Added on checkut'})</option>
+                          <option value="yes">Yes, Included in price</option>
+                          <option value="no">No, Add on checkout</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 180, fontSize: 12, color: 'var(--text-muted)', paddingTop: 20 }}>
+                      {(() => {
+                        const effectiveRate = parseFloat(gstPercentage || globalGstRate)
+                        const sellingPrice = parseFloat(form.discountPrice || form.basePrice || 0)
+                        const basePrice = parseFloat(form.basePrice || 0)
+                        const hasDiscount = form.discountPrice && parseFloat(form.discountPrice) < parseFloat(form.basePrice)
+                        if (!sellingPrice) return <span>Enter a price to see GST preview</span>
+
+                        const includedInPrice = gstIncludedInPrice === 'global' ? siteSettings?.tax?.includedInPrice : (gstIncludedInPrice === 'yes')
+                        let baseUnit, gstAmt, total
+                        if (includedInPrice) {
+                          baseUnit = sellingPrice / (1 + effectiveRate / 100)
+                          gstAmt = sellingPrice - baseUnit
+                          total = sellingPrice
+                        } else {
+                          baseUnit = sellingPrice
+                          gstAmt = sellingPrice * effectiveRate / 100
+                          total = sellingPrice + gstAmt
+                        }
+
+                        return (
+                          <>
+                            <div>Rate: <strong style={{ color: 'var(--primary)' }}>{effectiveRate}% {gstPercentage !== '' ? '(product override)' : '(global)'}</strong></div>
+                            <div style={{ marginTop: 6, lineHeight: 1.8 }}>
+                              {hasDiscount && (
+                                <div style={{ color: 'var(--warning)', marginBottom: 4 }}>
+                                  ⚡ GST on discounted price (<strong>₹{sellingPrice.toFixed(2)}</strong>), not base (₹{basePrice.toFixed(2)})
+                                </div>
+                              )}
+                              Selling price: <strong>₹{sellingPrice.toFixed(2)}</strong><br/>
+                              Base (ex-GST): <strong>₹{baseUnit.toFixed(2)}</strong><br/>
+                              GST ({effectiveRate}%): <strong>₹{gstAmt.toFixed(2)}</strong><br/>
+                              {includedInPrice
+                                ? <span style={{ color: 'var(--success)' }}>✓ GST included → Customer pays ₹{total.toFixed(2)}</span>
+                                : <span>Total (customer pays): <strong>₹{total.toFixed(2)}</strong></span>
+                              }
+                            </div>
+                          </>
+                        )
+                      })()}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <label className="toggle">
                   <input type="checkbox" checked={form.isFeatured} onChange={(e) => setForm({ ...form, isFeatured: e.target.checked })} />
                   <span className="toggle-slider" />
                 </label>
                 <span className="form-label" style={{ marginBottom: 0 }}>Mark as Featured Product</span>
+
               </div>
               <div className="modal-footer" style={{ margin: 0, padding: 0, border: 0 }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setModal(null)}>Cancel</button>

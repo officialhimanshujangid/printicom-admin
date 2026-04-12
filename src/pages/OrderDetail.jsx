@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Truck, AlertCircle, ChevronRight, Package, ExternalLink,
   Image as ImageIcon, Type, X, MapPin, User, CreditCard,
-  ShoppingBag, Clock, CheckCircle, MessageSquare, Download
+  ShoppingBag, Clock, CheckCircle, MessageSquare, Download, RefreshCw
 } from 'lucide-react'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
@@ -130,6 +130,22 @@ export default function OrderDetail() {
   const [statusForm, setStatusForm] = useState({ status: '', note: '' })
   const [trackingForm, setTrackingForm] = useState({ trackingNumber: '', courierName: '', trackingUrl: '', estimatedDeliveryDate: '' })
 
+  const getAvailableStatuses = (current, isPaid) => {
+    switch(current) {
+      case 'pending': return ['pending', 'confirmed', 'cancelled']
+      case 'payment_failed': return ['payment_failed', 'confirmed', 'cancelled']
+      case 'confirmed': return ['confirmed', 'processing', 'cancelled']
+      case 'processing': return ['processing', 'ready_to_ship', 'cancelled']
+      case 'ready_to_ship': return ['ready_to_ship', 'shipped', 'cancelled']
+      case 'shipped': return ['shipped', 'delivered']
+      case 'delivered': return ['delivered']
+      case 'cancelled': return isPaid ? ['cancelled', 'refund_initiated'] : ['cancelled']
+      case 'refund_initiated': return ['refund_initiated', 'refunded']
+      case 'refunded': return ['refunded']
+      default: return []
+    }
+  }
+
   const { data: orderResponse, isLoading, error } = useQuery({
     queryKey: ['order', id],
     queryFn: async () => {
@@ -152,11 +168,11 @@ export default function OrderDetail() {
     }
   }, [selectedOrder])
 
-  const updateStatus = async (e) => {
-    e.preventDefault()
+  const updateStatus = async (e, customPayload = null) => {
+    if (e && e.preventDefault) e.preventDefault()
     setSaving(true)
     try {
-      await api.patch(`/orders/admin/${selectedOrder._id}/status`, statusForm)
+      await api.patch(`/orders/admin/${selectedOrder._id}/status`, customPayload || statusForm)
       toast.success('Order status updated!')
       qc.invalidateQueries({ queryKey: ['order', id] })
     } catch (err) { toast.error(extractError(err)) }
@@ -169,6 +185,30 @@ export default function OrderDetail() {
     try {
       await api.patch(`/orders/admin/${selectedOrder._id}/tracking`, trackingForm)
       toast.success('Tracking info updated!')
+      qc.invalidateQueries({ queryKey: ['order', id] })
+    } catch (err) { toast.error(extractError(err)) }
+    finally { setSaving(false) }
+  }
+
+  const processShipment = async (method) => {
+    setSaving(true)
+    try {
+      await api.post(`/orders/admin/${selectedOrder._id}/process-shipment`, { method, ...trackingForm })
+      toast.success(method === 'shiprocket' ? 'Shipped seamlessly via Shiprocket!' : 'Manual shipment processed!')
+      qc.invalidateQueries({ queryKey: ['order', id] })
+    } catch (err) { toast.error(extractError(err)) }
+    finally { setSaving(false) }
+  }
+
+  const syncTracking = async () => {
+    setSaving(true)
+    try {
+      const res = await api.post(`/orders/admin/${selectedOrder._id}/sync-tracking`)
+      if (res.data?.data?.tracking?.statusChanged) {
+         toast.success(`Synced! Status actively updated to ${res.data.data.tracking.mappedStatus}.`)
+      } else {
+         toast.success('Synced! No new status leaps detected.')
+      }
       qc.invalidateQueries({ queryKey: ['order', id] })
     } catch (err) { toast.error(extractError(err)) }
     finally { setSaving(false) }
@@ -205,6 +245,20 @@ export default function OrderDetail() {
             <span className={`badge ${selectedOrder.paymentStatus === 'paid' ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: 11 }}>
               {selectedOrder.paymentMethod?.toUpperCase()} · {selectedOrder.paymentStatus}
             </span>
+            {(selectedOrder.status === 'pending' || selectedOrder.status === 'payment_failed') && selectedOrder.paymentStatus !== 'paid' && (
+               <button className="btn btn-secondary btn-sm" onClick={() => {
+                 if (window.confirm('Mark this order as paid manually? This will confirm the order.')) {
+                   updateStatus(null, { status: 'confirmed', note: 'Manual Payment Recorded', markPaid: true })
+                 }
+               }}><CheckCircle size={12} style={{marginRight: 4}}/> Mark Payment Done</button>
+            )}
+            {selectedOrder.status === 'cancelled' && selectedOrder.paymentStatus === 'paid' && (
+              <button className="btn btn-secondary btn-sm" onClick={() => {
+                 if (window.confirm('Initiate refund process?')) {
+                   updateStatus(null, { status: 'refund_initiated', note: 'Initializing Refund for cancelled order' })
+                 }
+               }}><Clock size={12} style={{marginRight: 4}}/> Initiate Refund</button>
+            )}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
             Placed {formatDateTime(selectedOrder.createdAt)} · {timeAgo(selectedOrder.createdAt)}
@@ -335,51 +389,101 @@ export default function OrderDetail() {
             <div className="form-group">
               <label className="form-label">Change Status To</label>
               <select className="form-select" value={statusForm.status} onChange={e => setStatusForm({ ...statusForm, status: e.target.value })}>
-                {ORDER_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                {ORDER_STATUSES.filter(s => getAvailableStatuses(selectedOrder.status, selectedOrder.paymentStatus === 'paid').includes(s.value)).map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
             </div>
             <div className="form-group">
               <label className="form-label">Internal Admin Note (optional)</label>
               <textarea className="form-textarea" value={statusForm.note} onChange={e => setStatusForm({ ...statusForm, note: e.target.value })} placeholder="E.g. Sent for printing..." rows={3} />
             </div>
-            <button type="submit" className="btn btn-primary" disabled={saving} style={{ width: 'fit-content' }}>
+            <button id="status-form-submit" type="submit" className="btn btn-primary" disabled={saving || statusForm.status === selectedOrder.status} style={{ width: 'fit-content' }}>
               {saving ? <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> : <><CheckCircle size={16} /> Save Status Update</>}
             </button>
           </form>
         )}
 
         {activeTab === 'tracking' && (
-          <form onSubmit={updateTracking} style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 600 }}>
-            {selectedOrder.trackingNumber && (
-              <div style={{ padding: '16px', background: 'rgba(16,185,129,0.07)', borderRadius: 12, border: '1px solid rgba(16,185,129,0.2)' }}>
-                <div style={{ fontWeight: 700, color: 'var(--success)', marginBottom: 6, fontSize: 14 }}>🚚 Currently Shipping Via</div>
-                <div style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 8 }}>{selectedOrder.courierName} · {selectedOrder.trackingNumber}</div>
-                {selectedOrder.trackingUrl && <a href={selectedOrder.trackingUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm" style={{ display: 'inline-flex' }}>Track Package URL ↗</a>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 600 }}>
+            {/* If order is already shipped or has active tracking info */}
+            {(selectedOrder.trackingNumber || selectedOrder.isManualShipped === false) && (
+              <div style={{ padding: '20px', background: 'rgba(16,185,129,0.07)', borderRadius: 12, border: '1px solid rgba(16,185,129,0.2)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div style={{ fontWeight: 800, color: 'var(--success)', fontSize: 15, display: 'flex', gap: 8, alignItems: 'center' }}><Truck size={18} /> Shipment Dispatched</div>
+                  {selectedOrder.isManualShipped === false ? (
+                     <span className="badge badge-brand">🚀 Shiprocket Auto</span>
+                  ) : (
+                     <span className="badge badge-default">🖐️ Manual Dispatch</span>
+                  )}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 12, background: 'var(--bg-elevated)', padding: 16, borderRadius: 8 }}>
+                  <div>
+                     <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Courier</div>
+                     <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{selectedOrder.courierName || 'Pending Assignment'}</div>
+                  </div>
+                  <div>
+                     <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Tracking AWB / Number</div>
+                     <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{selectedOrder.trackingNumber || 'Pending AWB Generation'}</div>
+                  </div>
+                  {selectedOrder.shipmentId && (
+                    <div style={{ gridColumn: '1 / -1' }}>
+                       <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Shiprocket Shipment ID</div>
+                       <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'monospace' }}>{selectedOrder.shipmentId}</div>
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                  {selectedOrder.trackingUrl && <a href={selectedOrder.trackingUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">Track Package ↗</a>}
+                  {selectedOrder.labelUrl && <a href={selectedOrder.labelUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-sm"><Download size={14} /> Download Label</a>}
+                  {selectedOrder.isManualShipped === false && selectedOrder.trackingNumber && (
+                    <button onClick={syncTracking} disabled={saving} className="btn btn-secondary btn-sm" style={{ borderColor: 'var(--border-focus)' }}>
+                      {saving ? <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> : <RefreshCw size={14} />} Sync Status
+                    </button>
+                  )}
+                </div>
               </div>
             )}
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Courier Service</label>
-                <input className="form-input" value={trackingForm.courierName} onChange={e => setTrackingForm({ ...trackingForm, courierName: e.target.value })} placeholder="e.g. BlueDart, Delhivery" />
+
+            {/* Manual Update Tracking Form */}
+            {selectedOrder.status !== 'cancelled' && selectedOrder.status !== 'refunded' && (
+              <div className="card" style={{ padding: 24 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {selectedOrder.trackingNumber || selectedOrder.shipmentId ? 'Update Existing Shipment' : 'Process New Shipment'}
+                </h3>
+                
+                {/* Auto Shipment Banner */}
+                {!(selectedOrder.trackingNumber || selectedOrder.shipmentId) && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 20, background: 'linear-gradient(135deg, rgba(255,107,53,0.08) 0%, rgba(255,107,53,0.02) 100%)', borderRadius: 12, border: '1px solid rgba(255,107,53,0.2)', marginBottom: 24 }}>
+                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 14 }}>🚀 Automated Dispatch (Shiprocket)</div>
+                    <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Instantly assign a courier, generate an AWB, generate a shipping label, and ping the customer tracking updates.</div>
+                    <button className="btn btn-primary" onClick={() => processShipment('shiprocket')} disabled={saving} style={{ alignSelf: 'flex-start' }}>
+                       {saving ? <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> : 'Generate Auto Shipment'}
+                    </button>
+                  </div>
+                )}
+
+                <form onSubmit={e => { e.preventDefault(); selectedOrder.trackingNumber || selectedOrder.shipmentId ? updateTracking(e) : processShipment('manual') }} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 14, borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>🖐️ Manual Dispatch Properties</div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="form-label">Courier Service</label>
+                      <input className="form-input" value={trackingForm.courierName} onChange={e => setTrackingForm({ ...trackingForm, courierName: e.target.value })} placeholder="e.g. India Post, Local" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Tracking Number</label>
+                      <input className="form-input" value={trackingForm.trackingNumber} onChange={e => setTrackingForm({ ...trackingForm, trackingNumber: e.target.value })} placeholder="AWB / Ref Num" />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Tracking Link</label>
+                    <input type="url" className="form-input" value={trackingForm.trackingUrl} onChange={e => setTrackingForm({ ...trackingForm, trackingUrl: e.target.value })} placeholder="https://..." />
+                  </div>
+                  <button type="submit" className="btn btn-secondary" disabled={saving || (!trackingForm.courierName && !selectedOrder.trackingNumber)} style={{ width: 'fit-content' }}>
+                    <Truck size={16} /> {saving ? <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> : (selectedOrder.trackingNumber || selectedOrder.shipmentId ? 'Update Info' : 'Process Manual Shipment')}
+                  </button>
+                </form>
               </div>
-              <div className="form-group">
-                <label className="form-label">Tracking Number (AWB)</label>
-                <input className="form-input" value={trackingForm.trackingNumber} onChange={e => setTrackingForm({ ...trackingForm, trackingNumber: e.target.value })} placeholder="124567890" />
-              </div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Tracking Link</label>
-              <input type="url" className="form-input" value={trackingForm.trackingUrl} onChange={e => setTrackingForm({ ...trackingForm, trackingUrl: e.target.value })} placeholder="https://..." />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Estimated Delivery Date</label>
-              <input type="date" className="form-input" value={trackingForm.estimatedDeliveryDate} onChange={e => setTrackingForm({ ...trackingForm, estimatedDeliveryDate: e.target.value })} />
-            </div>
-            <button type="submit" className="btn btn-primary" disabled={saving} style={{ width: 'fit-content' }}>
-              <Truck size={16} />
-              {saving ? <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> : 'Update Tracking Info'}
-            </button>
-          </form>
+            )}
+          </div>
         )}
 
         {activeTab === 'timeline' && (
