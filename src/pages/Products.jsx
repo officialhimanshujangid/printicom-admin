@@ -357,6 +357,12 @@ export default function Products() {
   const [isGstApplicable, setIsGstApplicable] = useState(false)
   const [gstPercentage, setGstPercentage] = useState('')   // '' = use global rate
   const [gstIncludedInPrice, setGstIncludedInPrice] = useState('global') // 'global', 'yes', 'no'
+  // Compliance & Invoice fields
+  const [hsnCode, setHsnCode] = useState('')
+  const [barcode, setBarcode] = useState('')
+  const [unit, setUnit] = useState('pcs')
+  const [brand, setBrand] = useState('')
+  const [manufacturer, setManufacturer] = useState('')
 
   const { data, isLoading } = useQuery({ queryKey: ['products', page, search, typeFilter], queryFn: fetchProducts })
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: fetchCategories })
@@ -379,6 +385,11 @@ export default function Products() {
     setIsGstApplicable(globalGstEnabled)
     setGstPercentage('')
     setGstIncludedInPrice('global')
+    setHsnCode('')
+    setBarcode('')
+    setUnit('pcs')
+    setBrand('')
+    setManufacturer('')
     setModal('create')
   }
 
@@ -408,6 +419,11 @@ export default function Products() {
     setIsGstApplicable(p.isGstApplicable || false)
     setGstPercentage(p.gstPercentage != null ? String(p.gstPercentage) : '')
     setGstIncludedInPrice(p.gstIncludedInPrice || 'global')
+    setHsnCode(p.hsnCode || '')
+    setBarcode(p.barcode || '')
+    setUnit(p.unit || 'pcs')
+    setBrand(p.brand || '')
+    setManufacturer(p.manufacturer || '')
     setModal(p)
   }
 
@@ -439,6 +455,12 @@ export default function Products() {
       fd.append('isGstApplicable', isGstApplicable)
       fd.append('gstPercentage', gstPercentage !== '' ? gstPercentage : '')
       fd.append('gstIncludedInPrice', gstIncludedInPrice)
+      // Compliance & Invoice fields
+      fd.append('hsnCode', hsnCode)
+      fd.append('barcode', barcode)
+      fd.append('unit', unit)
+      fd.append('brand', brand)
+      fd.append('manufacturer', manufacturer)
       // Base product images
       imageFiles.forEach((f) => fd.append('images', f))
       // RelatedTos JSON (ids + any existing image references)
@@ -730,6 +752,37 @@ export default function Products() {
                 <div className="form-group">
                   <label className="form-label">Low Stock Alert Threshold</label>
                   <input type="number" className="form-input" value={form.lowStockThreshold} onChange={(e) => setForm({ ...form, lowStockThreshold: e.target.value })} min={1} />
+                </div>
+              </div>
+
+              {/* ── GST / Compliance ── */}
+              <div style={{ border: '1px dashed var(--border)', borderRadius: 8, padding: 14, background: 'var(--bg-elevated)' }}>
+                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12, color: 'var(--text-primary)' }}>🏷️ GST & Invoice Compliance</div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">HSN / SAC Code</label>
+                    <input className="form-input" value={hsnCode} onChange={e => setHsnCode(e.target.value)} placeholder="e.g. 6911, 4819…" style={{ fontFamily: 'monospace' }} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Barcode (EAN/UPC)</label>
+                    <input className="form-input" value={barcode} onChange={e => setBarcode(e.target.value)} placeholder="e.g. 8901234567890" style={{ fontFamily: 'monospace' }} />
+                  </div>
+                  <div className="form-group" style={{ maxWidth: 120 }}>
+                    <label className="form-label">Unit</label>
+                    <select className="form-select" value={unit} onChange={e => setUnit(e.target.value)}>
+                      {['pcs','kg','g','ltr','ml','m','cm','box','set','pair','pack','roll','sheet'].map(u => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Brand <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 11 }}>(optional)</span></label>
+                    <input className="form-input" value={brand} onChange={e => setBrand(e.target.value)} placeholder="Brand name" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Manufacturer <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 11 }}>(optional)</span></label>
+                    <input className="form-input" value={manufacturer} onChange={e => setManufacturer(e.target.value)} placeholder="Manufacturer name" />
+                  </div>
                 </div>
               </div>
 
